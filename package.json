@@ -1,0 +1,32 @@
+{
+  "name": "@mpowerio/finance-adapters",
+  "version": "0.1.0",
+  "description": "FinanceAdapter registry + FreshBooks adapter for the mpowerio Vertical Factory. First cross-repo consumer of @mpowerio/core-contracts; maps invoice results into ArtifactRecord<'invoice'> envelopes.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepare": "npm run build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@mpowerio/core-contracts": "github:mpowerio/core-contracts#v0.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "vitest": "^2.1.0"
+  }
+}
