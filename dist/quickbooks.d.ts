@@ -1,4 +1,4 @@
-import type { AdapterOk, FinanceReadAdapter, FinanceReadFilters, InvoiceFilters, CreateInvoiceParams, InvoiceArtifact, BalanceResult, AccountResult, VendorResult, CustomerResult, BookInvoiceResult, BookTransactionResult } from './types.js';
+import type { AdapterOk, FinanceReadAdapter, FinanceReadFilters, InvoiceFilters, CreateInvoiceParams, InvoiceArtifact, BalanceResult, AccountResult, VendorResult, CustomerResult, BookInvoiceResult, BookTransactionResult, PurchaseResult } from './types.js';
 export declare const QUICKBOOKS_SCOPE = "com.intuit.quickbooks.accounting";
 export type QuickBooksErrorCode = 'configuration_missing' | 'invalid_configuration' | 'invalid_input' | 'reconnect_needed' | 'rate_limited' | 'not_found' | 'forbidden' | 'api_error' | 'invalid_response' | 'network_error' | 'timeout' | 'storage_error' | 'writes_disabled' | 'unsupported_operation' | 'pagination_incomplete';
 export interface QuickBooksFailure {
@@ -79,10 +79,11 @@ export declare class QuickBooksAdapter implements FinanceReadAdapter {
     private query;
     private currency;
     private transaction;
+    private purchase;
     listAccounts(filters?: FinanceReadFilters): Promise<QuickBooksResult<AccountResult[]>>;
     listCustomers(filters?: FinanceReadFilters): Promise<QuickBooksResult<CustomerResult[]>>;
     listVendors(filters?: FinanceReadFilters): Promise<QuickBooksResult<VendorResult[]>>;
-    listPurchases(filters?: FinanceReadFilters): Promise<QuickBooksResult<BookTransactionResult[]>>;
+    listPurchases(filters?: FinanceReadFilters): Promise<QuickBooksResult<PurchaseResult[]>>;
     listBills(filters?: FinanceReadFilters): Promise<QuickBooksResult<BookTransactionResult[]>>;
     listDeposits(filters?: FinanceReadFilters): Promise<QuickBooksResult<BookTransactionResult[]>>;
     listPayments(filters?: FinanceReadFilters): Promise<QuickBooksResult<BookTransactionResult[]>>;

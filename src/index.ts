@@ -48,7 +48,7 @@ export {
 
 export type {
   FinanceReadAdapter, FinanceReadFilters, AccountResult, VendorResult,
-  BookTransactionLine, BookTransactionResult, BookInvoiceResult,
+  BookTransactionLine, BookTransactionResult, BookInvoiceResult, PurchaseResult,
 } from './types.js';
 export {
   QuickBooksAdapter, QUICKBOOKS_SCOPE, readQuickBooksCredentialsFromEnv,

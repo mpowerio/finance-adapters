@@ -1,5 +1,74 @@
 # QuickBooks adapter verification — 2026-10-23
 
+## Repair r1 — B1/B2
+
+Repair baseline: `39d7abd95001a858129d35b25a3e6b677ddd85dc`. Builder identity:
+astra6 / gpt-6-astra high. Read the entire supplied REVIEW-r1.md and probes.mjs,
+including non-blocking notes, current Intuit facts and token/failure results.
+No reviewer selected, briefed, run or recorded by this repair; no registry writes.
+
+- **B1:** exported `PurchaseResult` requires `credit` and `paymentType`.
+  Identical USD 125 charge/refund inputs produce distinct serialized output,
+  differing only at `credit`. Both totals and lines keep provider amounts.
+  Missing/null Credit follows the official charge default; malformed flags,
+  unknown/missing payment types and non-card credits fail `invalid_response`.
+- **B2:** `entityRef` preserves Purchase EntityRef value/type/name. Vendor maps
+  to vendorId; Customer and Employee keep their own type without vendorId.
+  Missing optional payees remain absent, malformed/unsupported references fail
+  without partial output. Stray VendorRef/CustomerRef cannot override the payee;
+  Bill VendorRef behavior is unchanged. The original Purchase fixture is corrected.
+- Small non-blocking repairs: duplicate PayPal references return ambiguous,
+  inconsistent unpaid invoice evidence returns unmatched pending refresh,
+  contradictory empty-query counts and unexpected entity keys fail loudly.
+  README documents the provider's unpinned minor-version default from saved docs.
+
+Fresh commands and results:
+
+| Command | Result |
+| --- | --- |
+| `npm test -- src/quickbooks-review.test.ts --reporter=json --outputFile=.verification/repair-r1/before.json` before implementation | 56 failed / 26 passed; B1/B2 and hardening probes fail in both source and baseline committed dist |
+| `npm run build` | Exit 0; committed dist rebuilt |
+| `npm test -- src/quickbooks-review.test.ts --reporter=json --outputFile=.verification/repair-r1/after.json` | 82 passed / 0 failed |
+| `npm run typecheck` | Exit 0 |
+| `npm run lint` | Exit 0; strict compiler lint and script syntax checks |
+| `npm test -- --reporter=json --outputFile=.verification/repair-r1/all-tests.json` | 179 passed / 0 failed, five files |
+| `npm run test:quickbooks:negative` | All 5 mutations caught; details below |
+| `git diff --check` | Exit 0 |
+
+Committed `src/quickbooks-review.test.ts` converts the review probes into
+regression assertions against source and shipped dist: output bytes, three payee
+types, validation/defaults, Bill compatibility, nine reads × six HTTP failures
+plus invalid_grant (63 failure controls per implementation), examined-empty,
+write-disabled/no-fetch, scope, query metadata, exact matching, fees/splits,
+duplicates and adjacent dates. The 97 preexisting tests also pass.
+
+Negative controls mutate disposable copies inside the repository's ignored
+node_modules cache; production source/dist remain untouched:
+
+| Deliberate regression | Named assertion caught | Failed tests |
+| --- | --- | --- |
+| Remove Purchase credit/paymentType output (B1) | keeps charge and refund output bytes distinguishable | 7 |
+| Bypass Purchase EntityRef mapping (B2) | preserves typed Purchase payee Vendor in output bytes | 10 |
+| Expired token becomes empty success | distinguishes examined-empty from expired authentication | 32 |
+| Discard refresh rotation | saves rotation and both expiries before the read | 2 |
+| Pick first duplicate deposit | does not guess with duplicate deposits | 2 |
+
+Local raw reports: `.verification/repair-r1/` and
+`.verification/negative-controls/results.json`; those ignored reports are
+supplemental to the committed executable tests and this receipt. No E6/E21
+scripts exist in this repository (`rg --files` filename scan).
+
+Provider facts were checked against the review's saved official IPPPurchase.php,
+Purchase schema and minor-version guide in
+`~/agent-out/qbo-adapter-20261023/review-r1-evidence/public-intuit-docs/`.
+No new network call to Intuit or real credential use occurred. Actual sandbox
+Purchase/Deposit shapes, PayPal linkage, encrypted host storage/distributed
+locking, reconnect UI, scheduler and CDC/deletions remain unconfirmed integration
+work. Matcher dates are not settlement proof; offset queries are not a consistent
+snapshot. Dependency advisory counts below are historical, not re-audited here.
+
+## Original build evidence (before repair r1)
+
 Builder: astra6 / gpt-6-astra high. Card: QBO-ADAPTER-FINANCE-ADAPTERS-20261021.
 Base: `b6e489ec42de9c650e41fae47398bc2b0728ef86` (`origin/main`).
 All implementation work in `/tmp/finance-adapters-qbo`, branch

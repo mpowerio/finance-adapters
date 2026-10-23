@@ -125,6 +125,17 @@ export interface BookTransactionResult {
     vendorId?: string;
     lines: BookTransactionLine[];
 }
+export interface PurchaseResult extends BookTransactionResult {
+    /** True is a credit-card refund. Totals and lines retain provider amounts; no sign conversion. */
+    credit: boolean;
+    paymentType: 'Cash' | 'Check' | 'CreditCard';
+    /** Purchase payee; vendorId is populated only when type is Vendor. */
+    entityRef?: {
+        value: string;
+        type: 'Vendor' | 'Customer' | 'Employee';
+        name?: string;
+    };
+}
 export interface BookInvoiceResult extends InvoiceResult {
     invoiceNumber?: string;
     customerId: string;
@@ -135,7 +146,7 @@ export interface FinanceReadAdapter extends FinanceAdapter {
     listAccounts(filters?: FinanceReadFilters): Promise<AdapterResult<AccountResult[]>>;
     listCustomers(filters?: FinanceReadFilters): Promise<AdapterResult<CustomerResult[]>>;
     listVendors(filters?: FinanceReadFilters): Promise<AdapterResult<VendorResult[]>>;
-    listPurchases(filters?: FinanceReadFilters): Promise<AdapterResult<BookTransactionResult[]>>;
+    listPurchases(filters?: FinanceReadFilters): Promise<AdapterResult<PurchaseResult[]>>;
     listBills(filters?: FinanceReadFilters): Promise<AdapterResult<BookTransactionResult[]>>;
     listDeposits(filters?: FinanceReadFilters): Promise<AdapterResult<BookTransactionResult[]>>;
     listPayments(filters?: FinanceReadFilters): Promise<AdapterResult<BookTransactionResult[]>>;

@@ -125,6 +125,18 @@ includes partial balances). Provider invoice numbers and customer IDs are retain
 `Vendor1099` is a signal only; classification needs operator confirmation.
 Purchases are posted accounting records, **not unreviewed bank-feed downloads**.
 
+`listPurchases` returns `PurchaseResult`: `paymentType` is `Cash`, `Check`, or
+`CreditCard`; `credit: true` identifies a credit-card refund. Totals and line
+amounts retain provider values, without sign conversion. Consumers must use
+`credit` when interpreting spending. Intuit defines missing/null `Credit` as a
+charge (`credit: false`); malformed flags, unknown payment types, and credits on
+non-card purchases fail with `invalid_response`.
+Purchase payees retain `EntityRef` as `entityRef: { value, type, name? }`, where
+`type` is `Vendor`, `Customer`, or `Employee`. Only Vendor sets `vendorId`; other
+payees are never relabeled as vendors. An absent payee remains absent; a present
+but malformed or unsupported reference fails the entire read. Bills continue to
+use `VendorRef`. No tax is computed or added by these mappings.
+
 Queries include inactive Accounts/Customers/Vendors, fetch every page, and fail
 without returning partial results when a page is corrupt, repeats IDs, exceeds the
 configured cap, or cannot be fetched. Defaults: 1,000 rows/page, 1,000 pages/read,
@@ -133,6 +145,9 @@ Failures are redacted typed results, including `reconnect_needed`, `rate_limited
 `not_found`, `forbidden`, `api_error`, `invalid_response`, `timeout`, and
 `storage_error`. An explicit `QueryResponse: {}` is Intuit's successful-empty
 shape; absent/wrong entity envelopes and Faults are failures.
+The adapter omits `minorversion`; the official minor-version guide reviewed on
+2026-10-23 says omitted values receive version 75. This is a provider default,
+not a pinned version or a claim about future behavior.
 
 ### Token persistence and scheduled refresh
 
@@ -254,3 +269,10 @@ See [verification evidence](docs/quickbooks-verification.md) and
   Vendor1099 and linked transaction fields. These SDK schema pages are older;
   the current Deposit API page did not yield usable content. Actual sandbox
   Deposit shapes and linked-bank-feed behavior remain unconfirmed.
+- [Official Purchase schema](https://static.developer.intuit.com/sdkdocs/qbv3doc/ippphpdevkitv3/entities/files/IPPPurchase.html)
+  and [official PHP SDK definition](https://github.com/intuit/QuickBooks-V3-PHP-SDK/blob/master/src/Data/IPPPurchase.php):
+  credit-card refund direction, null/false charge default, required PaymentType,
+  and typed EntityRef payees. Repair r1 consulted the review's saved 2026-10-23
+  copies; it made no Intuit network requests and copied no SDK implementation.
+- [Minor-version guide](https://static.developer.intuit.com/output_html/qbo/docs/learn/explore-the-quickbooks-online-api/minor-versions.html):
+  omitted/retired minor versions default to 75, per the saved review evidence.

@@ -29,6 +29,10 @@ export function matchPayPalDeposit(paypal, snapshot) {
         if (invoices.length > 1)
             return ok({ status: 'ambiguous', reason: 'Invoice number is not unique for the mapped customer.' });
         const invoice = invoices[0];
+        if (snapshot.payments.filter(payment => payment.reference === paypal.id).length > 1)
+            return ok({ status: 'ambiguous', reason: 'Multiple payments carry the same PayPal reference.' });
+        if (invoice && (invoice.status !== 'paid' || invoice.balance !== 0))
+            return ok({ status: 'unmatched', reason: 'Refresh inconsistent invoice/payment evidence before reconciliation.' });
         if (!invoice || invoice.currency !== paypal.currency || cents(invoice.amount) !== cents(paypal.amount)) {
             return ok({ status: 'unmatched', reason: 'No exact invoice number/customer/amount/currency evidence.' });
         }

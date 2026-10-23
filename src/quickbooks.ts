@@ -3,7 +3,7 @@ import { ok } from './types.js';
 import type {
   AdapterOk, FinanceReadAdapter, FinanceReadFilters, InvoiceFilters, CreateInvoiceParams,
   InvoiceArtifact, BalanceResult, AccountResult, VendorResult, CustomerResult,
-  BookInvoiceResult, BookTransactionResult, BookTransactionLine,
+  BookInvoiceResult, BookTransactionResult, BookTransactionLine, PurchaseResult,
 } from './types.js';
 
 export const QUICKBOOKS_SCOPE = 'com.intuit.quickbooks.accounting';
@@ -293,6 +293,7 @@ export class QuickBooksAdapter implements FinanceReadAdapter {
           const sql = `SELECT * FROM ${entity}${where.length ? ` WHERE ${where.join(' AND ')}` : ''} ORDERBY Id STARTPOSITION ${start} MAXRESULTS ${pageSize}`;
           const body = record(await request(`/query?query=${encodeURIComponent(sql)}`));
           const result = record(body.QueryResponse);
+          if (Object.keys(result).some(key => ![entity, 'startPosition', 'maxResults', 'totalCount'].includes(key))) fail('invalid_response', 'Unexpected entity in query response.');
           const items = result[entity];
           if (items === undefined) {
             // Intuit represents a successful zero-row query with QueryResponse:{}.
@@ -302,6 +303,7 @@ export class QuickBooksAdapter implements FinanceReadAdapter {
             return rows;
           }
           if (!Array.isArray(items) || items.length > pageSize
+              || (result.totalCount !== undefined && (!Number.isInteger(result.totalCount) || num(result.totalCount) < 0 || (items.length === 0 && result.totalCount !== 0)))
               || (result.startPosition !== undefined && result.startPosition !== start)
               || (result.maxResults !== undefined && result.maxResults !== items.length)) fail('invalid_response', 'Invalid page shape or pagination metadata.');
           for (const item of items) {
@@ -322,7 +324,7 @@ export class QuickBooksAdapter implements FinanceReadAdapter {
     if (!currency || !/^[A-Z]{3}$/.test(currency)) fail('invalid_response', 'Currency missing/invalid; configure verified company homeCurrency.');
     return currency;
   }
-  private transaction = (row: Record<string, unknown>): BookTransactionResult => {
+  private transaction = (row: Record<string, unknown>, includePartyRefs = true): BookTransactionResult => {
     if (!Array.isArray(row.Line)) fail('invalid_response', 'Transaction lines are missing.');
     const lines: BookTransactionLine[] = row.Line.map(value => {
       const line = record(value);
@@ -335,8 +337,27 @@ export class QuickBooksAdapter implements FinanceReadAdapter {
     const result: BookTransactionResult = { id: str(row.Id), amount: num(row.TotalAmt), currency: this.currency(row), date: date(row.TxnDate), lines };
     const documentNumber = optionalText(row, 'DocNumber'); if (documentNumber !== undefined) result.documentNumber = documentNumber;
     const reference = optionalText(row, 'PaymentRefNum'); if (reference !== undefined) result.reference = reference;
-    const customerId = ref(row, 'CustomerRef'); if (customerId !== undefined) result.customerId = customerId;
-    const vendorId = ref(row, 'VendorRef'); if (vendorId !== undefined) result.vendorId = vendorId;
+    const customerId = includePartyRefs ? ref(row, 'CustomerRef') : undefined; if (customerId !== undefined) result.customerId = customerId;
+    const vendorId = includePartyRefs ? ref(row, 'VendorRef') : undefined; if (vendorId !== undefined) result.vendorId = vendorId;
+    return result;
+  };
+  private purchase = (row: Record<string, unknown>): PurchaseResult => {
+    const paymentType = row.PaymentType;
+    if (paymentType !== 'Cash' && paymentType !== 'Check' && paymentType !== 'CreditCard') fail('invalid_response', 'Invalid Purchase payment type.');
+    // Intuit defines omitted/null Credit as a charge; never coerce strings/numbers.
+    if (row.Credit !== undefined && row.Credit !== null && typeof row.Credit !== 'boolean') fail('invalid_response', 'Invalid Purchase credit flag.');
+    if (row.Credit === true && paymentType !== 'CreditCard') fail('invalid_response', 'Purchase credit requires CreditCard payment type.');
+    const result: PurchaseResult = {
+      ...this.transaction(row, false), credit: row.Credit === true, paymentType,
+    };
+    if (row.EntityRef !== undefined) {
+      const entity = record(row.EntityRef);
+      const type = entity.type;
+      if (type !== 'Vendor' && type !== 'Customer' && type !== 'Employee') fail('invalid_response', 'Invalid Purchase payee type.');
+      result.entityRef = { value: str(entity.value), type };
+      if (entity.name !== undefined) result.entityRef.name = str(entity.name);
+      if (type === 'Vendor') result.vendorId = result.entityRef.value;
+    }
     return result;
   };
   listAccounts(filters?: FinanceReadFilters): Promise<QuickBooksResult<AccountResult[]>> {
@@ -365,7 +386,7 @@ export class QuickBooksAdapter implements FinanceReadAdapter {
       return vendor;
     }, () => this.since(filters));
   }
-  listPurchases(filters?: FinanceReadFilters): Promise<QuickBooksResult<BookTransactionResult[]>> { return this.query('Purchase', this.transaction, () => this.since(filters)); }
+  listPurchases(filters?: FinanceReadFilters): Promise<QuickBooksResult<PurchaseResult[]>> { return this.query('Purchase', this.purchase, () => this.since(filters)); }
   listBills(filters?: FinanceReadFilters): Promise<QuickBooksResult<BookTransactionResult[]>> { return this.query('Bill', this.transaction, () => this.since(filters)); }
   listDeposits(filters?: FinanceReadFilters): Promise<QuickBooksResult<BookTransactionResult[]>> { return this.query('Deposit', this.transaction, () => this.since(filters)); }
   listPayments(filters?: FinanceReadFilters): Promise<QuickBooksResult<BookTransactionResult[]>> { return this.query('Payment', this.transaction, () => this.since(filters)); }

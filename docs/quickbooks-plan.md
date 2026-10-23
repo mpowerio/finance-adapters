@@ -25,3 +25,17 @@ Plan:
 Known-answer declared before execution: synthetic PP-001, invoice FPC-1001, USD
 125.00 -> D-1 / P-1 / I-1 only. Duplicate candidates, absent links, changed amount
 or changed currency must not match. Fixtures are invented, not client records.
+
+## Repair r1 — B1/B2
+
+Acceptance: identical synthetic Purchase charges/refunds must serialize differently;
+Purchase EntityRef value/type/name survives, and only Vendor maps to vendorId.
+Add PurchaseResult with required credit and paymentType and optional entityRef.
+Amounts remain provider values on both totals and lines. Per the saved official
+SDK schema, absent/null Credit means false; true requires CreditCard. Unknown or
+malformed direction/payee fields fail invalid_response without partial data.
+
+Single repair lane: add failing source/dist tests from review probes, implement
+Purchase mapping and small non-blocking query/matcher guards, extend independent
+mutation controls for B1/B2, rebuild dist, run all checks, update PR #1 and push.
+No live Intuit requests, reviewer actions, registry writes, merge or main push.

@@ -138,7 +138,7 @@ describe('read entities and complete queries', () => {
     ['Account', 'listAccounts', { Id: 'A-1', Name: 'Checking', AccountType: 'Bank', Classification: 'Asset', CurrentBalance: 125, Active: false }],
     ['Customer', 'listCustomers', { Id: 'C-1', DisplayName: 'Synthetic Customer', PrimaryEmailAddr: { Address: 'test@example.invalid' } }],
     ['Vendor', 'listVendors', { Id: 'V-1', DisplayName: 'Synthetic Vendor', Vendor1099: true, Active: false }],
-    ['Purchase', 'listPurchases', txn], ['Bill', 'listBills', { ...txn, VendorRef: { value: 'V-1' } }],
+    ['Purchase', 'listPurchases', { ...txn, PaymentType: 'CreditCard', Credit: false, EntityRef: { value: 'V-1', type: 'Vendor', name: 'Synthetic Supplier' } }], ['Bill', 'listBills', { ...txn, VendorRef: { value: 'V-1' } }],
     ['Deposit', 'listDeposits', txn], ['Payment', 'listPayments', { ...txn, CustomerRef: { value: 'C-1' }, PaymentRefNum: 'PP-001' }],
     ['Invoice', 'listInvoices', { Id: 'I-1', TotalAmt: 125, Balance: 0, DocNumber: 'FPC-1001', CustomerRef: { value: 'C-1' } }],
   ] as const)('reads and validates %s', async (entity, method, row) => {

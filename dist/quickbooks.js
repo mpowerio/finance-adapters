@@ -276,6 +276,8 @@ export class QuickBooksAdapter {
                     const sql = `SELECT * FROM ${entity}${where.length ? ` WHERE ${where.join(' AND ')}` : ''} ORDERBY Id STARTPOSITION ${start} MAXRESULTS ${pageSize}`;
                     const body = record(await request(`/query?query=${encodeURIComponent(sql)}`));
                     const result = record(body.QueryResponse);
+                    if (Object.keys(result).some(key => ![entity, 'startPosition', 'maxResults', 'totalCount'].includes(key)))
+                        fail('invalid_response', 'Unexpected entity in query response.');
                     const items = result[entity];
                     if (items === undefined) {
                         // Intuit represents a successful zero-row query with QueryResponse:{}.
@@ -286,6 +288,7 @@ export class QuickBooksAdapter {
                         return rows;
                     }
                     if (!Array.isArray(items) || items.length > pageSize
+                        || (result.totalCount !== undefined && (!Number.isInteger(result.totalCount) || num(result.totalCount) < 0 || (items.length === 0 && result.totalCount !== 0)))
                         || (result.startPosition !== undefined && result.startPosition !== start)
                         || (result.maxResults !== undefined && result.maxResults !== items.length))
                         fail('invalid_response', 'Invalid page shape or pagination metadata.');
@@ -310,7 +313,7 @@ export class QuickBooksAdapter {
             fail('invalid_response', 'Currency missing/invalid; configure verified company homeCurrency.');
         return currency;
     }
-    transaction = (row) => {
+    transaction = (row, includePartyRefs = true) => {
         if (!Array.isArray(row.Line))
             fail('invalid_response', 'Transaction lines are missing.');
         const lines = row.Line.map(value => {
@@ -330,12 +333,37 @@ export class QuickBooksAdapter {
         const reference = optionalText(row, 'PaymentRefNum');
         if (reference !== undefined)
             result.reference = reference;
-        const customerId = ref(row, 'CustomerRef');
+        const customerId = includePartyRefs ? ref(row, 'CustomerRef') : undefined;
         if (customerId !== undefined)
             result.customerId = customerId;
-        const vendorId = ref(row, 'VendorRef');
+        const vendorId = includePartyRefs ? ref(row, 'VendorRef') : undefined;
         if (vendorId !== undefined)
             result.vendorId = vendorId;
+        return result;
+    };
+    purchase = (row) => {
+        const paymentType = row.PaymentType;
+        if (paymentType !== 'Cash' && paymentType !== 'Check' && paymentType !== 'CreditCard')
+            fail('invalid_response', 'Invalid Purchase payment type.');
+        // Intuit defines omitted/null Credit as a charge; never coerce strings/numbers.
+        if (row.Credit !== undefined && row.Credit !== null && typeof row.Credit !== 'boolean')
+            fail('invalid_response', 'Invalid Purchase credit flag.');
+        if (row.Credit === true && paymentType !== 'CreditCard')
+            fail('invalid_response', 'Purchase credit requires CreditCard payment type.');
+        const result = {
+            ...this.transaction(row, false), credit: row.Credit === true, paymentType,
+        };
+        if (row.EntityRef !== undefined) {
+            const entity = record(row.EntityRef);
+            const type = entity.type;
+            if (type !== 'Vendor' && type !== 'Customer' && type !== 'Employee')
+                fail('invalid_response', 'Invalid Purchase payee type.');
+            result.entityRef = { value: str(entity.value), type };
+            if (entity.name !== undefined)
+                result.entityRef.name = str(entity.name);
+            if (type === 'Vendor')
+                result.vendorId = result.entityRef.value;
+        }
         return result;
     };
     listAccounts(filters) {
@@ -384,7 +412,7 @@ export class QuickBooksAdapter {
             return vendor;
         }, () => this.since(filters));
     }
-    listPurchases(filters) { return this.query('Purchase', this.transaction, () => this.since(filters)); }
+    listPurchases(filters) { return this.query('Purchase', this.purchase, () => this.since(filters)); }
     listBills(filters) { return this.query('Bill', this.transaction, () => this.since(filters)); }
     listDeposits(filters) { return this.query('Deposit', this.transaction, () => this.since(filters)); }
     listPayments(filters) { return this.query('Payment', this.transaction, () => this.since(filters)); }
