@@ -20,7 +20,10 @@
     "prepare": "npm run build",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit --noUnusedLocals --noUnusedParameters --noFallthroughCasesInSwitch --noImplicitReturns && node --check scripts/quickbooks-smoke.mjs && node --check scripts/quickbooks-negative-controls.mjs",
+    "smoke:quickbooks": "npm run build && node scripts/quickbooks-smoke.mjs",
+    "test:quickbooks:negative": "node scripts/quickbooks-negative-controls.mjs"
   },
   "dependencies": {
     "@mpowerio/core-contracts": "git+https://github.com/mpowerio/core-contracts.git#v0.1.0"
