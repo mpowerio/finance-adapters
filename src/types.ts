@@ -11,7 +11,7 @@
 import type { ArtifactRecord } from '@mpowerio/core-contracts';
 
 // ─── Provider identity ───────────────────────────────────────────────
-export type FinanceProvider = 'freshbooks' | 'paypal' | (string & {});
+export type FinanceProvider = 'freshbooks' | 'quickbooks' | 'paypal' | (string & {});
 
 /** The Factory artifact shape every adapter produces for a created invoice. */
 export type InvoiceArtifact = ArtifactRecord<'invoice'>;
@@ -57,6 +57,7 @@ export interface CustomerResult {
   name: string;
   email: string;
   phone?: string;
+  active?: boolean;
 }
 
 export interface BalanceResult {
@@ -110,4 +111,56 @@ export interface FinanceAdapter {
   listInvoices(filters?: InvoiceFilters): Promise<AdapterResult<InvoiceResult[]>>;
   getBalance(): Promise<AdapterResult<BalanceResult>>;
   syncCustomers(): Promise<AdapterResult<CustomerResult[]>>;
+}
+
+// Opt-in books reads. Existing invoice-only adapters need not implement these.
+export interface FinanceReadFilters {
+  /** Inclusive ISO timestamp; replay the boundary and upsert by provider ID. */
+  updatedSince?: string;
+}
+export interface AccountResult {
+  id: string;
+  name: string;
+  accountType: string;
+  classification?: string;
+  active?: boolean;
+  currentBalance?: number;
+  currency?: string;
+}
+export interface VendorResult {
+  id: string;
+  name: string;
+  /** Provider signal only. Never an automatic tax/vendor classification. */
+  vendor1099?: boolean;
+  active?: boolean;
+}
+export interface BookTransactionLine {
+  amount: number;
+  linkedTransactions: { id: string; type: string }[];
+}
+export interface BookTransactionResult {
+  id: string;
+  amount: number;
+  currency: string;
+  date: string;
+  documentNumber?: string;
+  reference?: string;
+  customerId?: string;
+  vendorId?: string;
+  lines: BookTransactionLine[];
+}
+export interface BookInvoiceResult extends InvoiceResult {
+  invoiceNumber?: string;
+  customerId: string;
+  balance: number;
+}
+export interface FinanceReadAdapter extends FinanceAdapter {
+  listInvoices(filters?: InvoiceFilters & FinanceReadFilters): Promise<AdapterResult<BookInvoiceResult[]>>;
+  listAccounts(filters?: FinanceReadFilters): Promise<AdapterResult<AccountResult[]>>;
+  listCustomers(filters?: FinanceReadFilters): Promise<AdapterResult<CustomerResult[]>>;
+  listVendors(filters?: FinanceReadFilters): Promise<AdapterResult<VendorResult[]>>;
+  listPurchases(filters?: FinanceReadFilters): Promise<AdapterResult<BookTransactionResult[]>>;
+  listBills(filters?: FinanceReadFilters): Promise<AdapterResult<BookTransactionResult[]>>;
+  listDeposits(filters?: FinanceReadFilters): Promise<AdapterResult<BookTransactionResult[]>>;
+  listPayments(filters?: FinanceReadFilters): Promise<AdapterResult<BookTransactionResult[]>>;
 }
