@@ -13,4 +13,5 @@ export { FreshBooksAdapter, readFreshBooksCredentialsFromEnv, type FreshBooksAda
 export type { FinanceReadAdapter, FinanceReadFilters, AccountResult, VendorResult, BookTransactionLine, BookTransactionResult, BookInvoiceResult, PurchaseResult, } from './types.js';
 export { QuickBooksAdapter, QUICKBOOKS_SCOPE, readQuickBooksCredentialsFromEnv, quickBooksConnectionKey, type QuickBooksAdapterOptions, type QuickBooksCredentials, type QuickBooksConnection, type QuickBooksConnectionState, type QuickBooksTokenSession, type QuickBooksTokenStore, type QuickBooksErrorCode, type QuickBooksFailure, type QuickBooksGated, type QuickBooksResult, } from './quickbooks.js';
 export { matchPayPalDeposit, type PayPalPaymentEvidence, type QuickBooksMatchSnapshot, type QuickBooksDepositMatch, } from './quickbooks-match.js';
+export { PayPalAdapter, type CancelApproval } from './paypal.js';
 //# sourceMappingURL=index.d.ts.map

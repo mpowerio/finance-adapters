@@ -276,3 +276,15 @@ See [verification evidence](docs/quickbooks-verification.md) and
   copies; it made no Intuit network requests and copied no SDK implementation.
 - [Minor-version guide](https://static.developer.intuit.com/output_html/qbo/docs/learn/explore-the-quickbooks-online-api/minor-versions.html):
   omitted/retired minor versions default to 75, per the saved review evidence.
+
+### PayPal
+
+Set PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET for the selected PAYPAL_ENV
+(sandbox by default, or live). Signature verification also requires
+PAYPAL_WEBHOOK_ID. Run `npx finance-adapters paypal invoices --status SENT`
+from an installation of this package. Missing recipient names and businesses
+are returned as null. A missing primary email blocks the read. All amounts
+are cents. Reporting fees are positive for expenses. Search intervals may
+span up to 31 days. Webhook consumers must persist the verified event's
+idempotencyKey under a unique constraint in the same transaction as their
+business update.

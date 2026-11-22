@@ -11,4 +11,5 @@ export { registerAdapter, getAdapter, listAdapters, removeAdapter, clearAdapters
 export { FreshBooksAdapter, readFreshBooksCredentialsFromEnv, } from './freshbooks.js';
 export { QuickBooksAdapter, QUICKBOOKS_SCOPE, readQuickBooksCredentialsFromEnv, quickBooksConnectionKey, } from './quickbooks.js';
 export { matchPayPalDeposit, } from './quickbooks-match.js';
+export { PayPalAdapter } from './paypal.js';
 //# sourceMappingURL=index.js.map
