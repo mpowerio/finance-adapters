@@ -61,3 +61,4 @@ export {
   matchPayPalDeposit, type PayPalPaymentEvidence, type QuickBooksMatchSnapshot,
   type QuickBooksDepositMatch,
 } from './quickbooks-match.js';
+export { PayPalAdapter, type CancelApproval } from './paypal.js';

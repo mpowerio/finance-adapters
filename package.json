@@ -13,7 +13,8 @@
   },
   "files": [
     "dist",
-    "src"
+    "src",
+    "bin"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
@@ -31,5 +32,8 @@
   "devDependencies": {
     "typescript": "^5.5.0",
     "vitest": "^2.1.0"
+  },
+  "bin": {
+    "finance-adapters": "bin/finance-adapters.js"
   }
 }
