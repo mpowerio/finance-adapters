@@ -12,8 +12,9 @@ if (
   console.error("Usage: finance-adapters paypal invoices [--status SENT]");
   process.exitCode = 2;
 } else {
+  console.log("PayPal environment: " + (process.env.PAYPAL_ENV ?? "sandbox"));
   const result = await new PayPalAdapter().listInvoices(
-    args.length ? { status: args[1] } : {},
+    args.length ? { status: args[1].toUpperCase() } : {},
   );
   if (!result.ok) {
     console.error(result.error);
@@ -24,9 +25,11 @@ if (
       result.data.map(({ number, status, recipient, amount, currency }) => ({
         number,
         status,
-        recipient: [recipient.name, recipient.business, recipient.email]
-          .filter(Boolean)
-          .join(" | "),
+        recipient: !recipient.email
+          ? "missing recipient"
+          : [recipient.name, recipient.business, recipient.email]
+              .filter(Boolean)
+              .join(" | "),
         amountCents: amount,
         currency,
       })),

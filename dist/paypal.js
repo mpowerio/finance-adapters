@@ -41,6 +41,18 @@ async function result(operation) {
         return failure(error instanceof Error ? error.message : "PayPal request failed");
     }
 }
+const usedNonces = new Set();
+// UTC timestamps with seconds and optional fractional seconds.
+function timestamp(value, field) {
+    const match = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d{1,3}))?Z$/.exec(value);
+    const ms = Date.parse(value);
+    if (!match ||
+        !Number.isFinite(ms) ||
+        new Date(ms).toISOString() !==
+            match[1] + "." + (match[2] ?? "").padEnd(3, "0") + "Z")
+        throw Error("Invalid " + field);
+    return ms;
+}
 const events = new Set([
     "INVOICING.INVOICE.PAID",
     "INVOICING.INVOICE.CANCELLED",
@@ -102,15 +114,17 @@ export class PayPalAdapter {
         const raw = await response.text();
         return raw ? JSON.parse(raw) : null;
     }
-    async invoice(id) {
+    async invoice(id, list = false) {
         if (!/^[a-zA-Z0-9_-]+$/.test(required(id, "invoice id")))
             throw Error("Invalid invoice id");
         const row = await this.request("/v2/invoicing/invoices/" + id);
         if (row.id !== id)
             throw Error("Invoice ID mismatch");
-        if (row.primary_recipients?.length !== 1)
+        const recipients = row.primary_recipients ?? [];
+        if (!Array.isArray(recipients) ||
+            (recipients.length !== 1 && !(list && recipients.length === 0)))
             throw Error("Invoice recipient missing or ambiguous");
-        const billing = row.primary_recipients[0].billing_info;
+        const billing = recipients[0]?.billing_info ?? {};
         return {
             id,
             externalId: id,
@@ -122,7 +136,9 @@ export class PayPalAdapter {
                         .join(" ") ||
                     null,
                 business: billing.business_name ?? null,
-                email: required(billing.email_address, "recipient email"),
+                email: list && !billing.email_address?.trim()
+                    ? null
+                    : required(billing.email_address, "recipient email"),
             },
             status: required(row.status, "status"),
             amount: cents(row.amount.value),
@@ -154,7 +170,7 @@ export class PayPalAdapter {
                     if (seen.has(item.id))
                         throw Error("Repeated invoice in pagination");
                     seen.add(item.id);
-                    const invoice = await this.invoice(item.id);
+                    const invoice = await this.invoice(item.id, true);
                     if (!filters.status || invoice.status === filters.status)
                         invoices.push(invoice);
                 }
@@ -167,19 +183,30 @@ export class PayPalAdapter {
         return result(async () => {
             const approvedBy = required(approval?.approvedBy, "approvedBy");
             const approvedAt = approval.approvedAt;
-            if (!Number.isFinite(Date.parse(approvedAt)))
-                throw Error("Invalid approvedAt");
+            const approvalTime = timestamp(approvedAt, "approvedAt");
+            const nonce = required(approval.nonce, "nonce");
+            if (approval.expectedInvoiceId !== id)
+                throw Error("Approval invoice ID mismatch");
             const email = approval.expectedRecipientEmail, number = approval.expectedInvoiceNumber;
             const invoice = await this.invoice(id);
             if (email !== invoice.recipient.email)
                 throw Error("Recipient email mismatch");
             if (number !== invoice.number)
                 throw Error("Invoice number mismatch");
+            if (!["SENT", "UNPAID", "PARTIALLY_PAID"].includes(invoice.status))
+                throw Error("Invoice status cannot be cancelled");
+            const age = Date.now() - approvalTime;
+            if (age > 15 * 60000 || age < -60000)
+                throw Error("Approval outside validity window");
+            if (usedNonces.has(nonce))
+                throw Error("Approval nonce already used");
+            usedNonces.add(nonce);
             await this.request("/v2/invoicing/invoices/" + id + "/cancel", {
                 send_to_recipient: false,
             });
             return {
                 id,
+                nonce,
                 approvedBy,
                 approvedAt,
                 recipientEmail: email,
@@ -233,6 +260,9 @@ export class PayPalAdapter {
             ]) {
                 body[field] = required(headers.get("paypal-" + field.replaceAll("_", "-")), field);
             }
+            const transmitted = timestamp(String(body.transmission_time), "transmission_time");
+            if (Date.now() - transmitted > 10 * 60000)
+                throw Error("Stale webhook transmission");
             const check = await this.request("/v1/notifications/verify-webhook-signature", body);
             if (check?.verification_status !== "SUCCESS")
                 throw Error("Invalid PayPal webhook signature");

@@ -19,6 +19,8 @@ export declare function transaction(info: {
     net: number;
 };
 export interface CancelApproval {
+    expectedInvoiceId: string;
+    nonce: string;
     approvedBy: string;
     approvedAt: string;
     expectedRecipientEmail: string;
@@ -40,7 +42,7 @@ export declare class PayPalAdapter implements FinanceAdapter {
         recipient: {
             name: any;
             business: any;
-            email: string;
+            email: string | null;
         };
         status: string;
         amount: number;
@@ -56,7 +58,7 @@ export declare class PayPalAdapter implements FinanceAdapter {
         recipient: {
             name: any;
             business: any;
-            email: string;
+            email: string | null;
         };
         status: string;
         amount: number;
@@ -67,6 +69,7 @@ export declare class PayPalAdapter implements FinanceAdapter {
     }[]>>;
     cancelInvoice(id: string, approval: CancelApproval): Promise<import("./types.js").AdapterFailure | import("./types.js").AdapterOk<{
         id: string;
+        nonce: string;
         approvedBy: string;
         approvedAt: string;
         recipientEmail: string;
